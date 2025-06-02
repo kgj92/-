@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>커뮤니티 게시판</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #f0f2f5;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 20px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+    }
+
+    form, .search-bar {
+      margin-bottom: 20px;
+    }
+
+    input[type="text"], textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      margin-bottom: 12px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+
+    button {
+      padding: 10px 20px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #2980b9;
+    }
+
+    .post {
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      background: #fefefe;
+    }
+
+    .post h3 {
+      margin: 0;
+    }
+
+    .post p {
+      margin: 8px 0;
+    }
+
+    .comments {
+      margin-top: 15px;
+      padding-left: 15px;
+      border-left: 3px solid #eee;
+    }
+
+    .comment {
+      margin-bottom: 10px;
+    }
+
+    .like-btn {
+      background-color: #2ecc71;
+      margin-right: 10px;
+    }
+
+    .like-btn:hover {
+      background-color: #27ae60;
+    }
+
+    .delete-btn {
+      background-color: #e74c3c;
+    }
+
+    .delete-btn:hover {
+      background-color: #c0392b;
+    }
+
+    .admin-bar {
+      margin-top: 30px;
+      text-align: right;
+    }
+
+    .search-bar input {
+      padding: 8px;
+      width: 300px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+
+    .admin-status {
+      font-weight: bold;
+      color: #27ae60;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>커뮤니티 게시판</h1>
+
+    <div class="search-bar">
+      <input type="text" id="search" placeholder="게시글 검색..." />
+    </div>
+
+    <form id="postForm">
+      <input type="text" id="title" placeholder="제목을 입력하세요" required />
+      <textarea id="content" rows="4" placeholder="내용을 입력하세요" required></textarea>
+      <button type="submit">글 작성</button>
+    </form>
+
+    <div class="admin-bar">
+      <input type="password" id="adminPass" placeholder="관리자 비밀번호 입력" />
+      <button onclick="activateAdmin()">관리자 모드</button>
+      <span id="adminStatus" class="admin-status"></span>
+    </div>
+
+    <div id="posts"></div>
+  </div>
+
+  <script>
+    let posts = JSON.parse(localStorage.getItem("posts")) || [];
+    let isAdmin = false;
+
+    const postForm = document.getElementById("postForm");
+    const postsDiv = document.getElementById("posts");
+    const searchInput = document.getElementById("search");
+    const adminStatus = document.getElementById("adminStatus");
+
+    function savePosts() {
+      localStorage.setItem("posts", JSON.stringify(posts));
+    }
+
+    function renderPosts() {
+      postsDiv.innerHTML = "";
+      const query = searchInput.value.toLowerCase();
+
+      posts.forEach((post, index) => {
+        if (post.title.toLowerCase().includes(query) || post.content.toLowerCase().includes(query)) {
+          const postEl = document.createElement("div");
+          postEl.className = "post";
+          postEl.innerHTML = `
+            <h3>${post.title}</h3>
+            <p>${post.content}</p>
+            <p>❤️ 좋아요: ${post.likes}</p>
+            <button class="like-btn" onclick="likePost(${index})">좋아요</button>
+            ${isAdmin ? `<button class="delete-btn" onclick="deletePost(${index})">삭제</button>` : ''}
+            <div class="comments">
+              <h4>댓글</h4>
+              ${post.comments.map(c => `<div class="comment">- ${c}</div>`).join("")}
+              <input type="text" placeholder="댓글 입력..." onkeypress="addComment(event, ${index})" />
+            </div>
+          `;
+          postsDiv.appendChild(postEl);
+        }
+      });
+    }
+
+    postForm.addEventListener("submit", function(e) {
+      e.preventDefault();
+      const title = document.getElementById("title").value.trim();
+      const content = document.getElementById("content").value.trim();
+
+      if (title && content) {
+        posts.unshift({ title, content, likes: 0, comments: [] });
+        savePosts();
+        renderPosts();
+        postForm.reset();
+      }
+    });
+
+    function likePost(index) {
+      posts[index].likes++;
+      savePosts();
+      renderPosts();
+    }
+
+    function deletePost(index) {
+      if (confirm("정말 삭제하시겠습니까?")) {
+        posts.splice(index, 1);
+        savePosts();
+        renderPosts();
+      }
+    }
+
+    function addComment(e, index) {
+      if (e.key === "Enter" && e.target.value.trim()) {
+        posts[index].comments.push(e.target.value.trim());
+        e.target.value = "";
+        savePosts();
+        renderPosts();
+      }
+    }
+
+    function activateAdmin() {
+      const inputPass = document.getElementById("adminPass").value;
+      if (inputPass === "admin1234") {
+        isAdmin = true;
+        adminStatus.textContent = "관리자 활성화됨";
+        renderPosts();
+      } else {
+        alert("비밀번호가 틀렸습니다.");
+      }
+    }
+
+    searchInput.addEventListener("input", renderPosts);
+
+    renderPosts();
+  </script>
+</body>
+</html>
